@@ -1,6 +1,7 @@
 import os
 import datetime
 import sys
+import subprocess
 from dataclasses import dataclass
 from typing import List, Dict, Optional, Tuple
 from xml.etree.ElementTree import parse
@@ -87,6 +88,39 @@ def process_file(file_path: str, file_name: str) -> Fattura:
             stato_elaborazione=f"KO: {e}",
             nome_file=file_name
         )
+
+def decode_p7m_files(input_file_path: str):
+    # Verifica che il percorso di input esista e sia una directory
+    if not os.path.exists(input_file_path) or not os.path.isdir(input_file_path):
+        raise FileNotFoundError(f"La cartella di input '{input_file_path}' non esiste o non è una directory.")
+
+    # Verifica se la cartella contiene file
+    if not os.listdir(input_file_path):
+        print("La cartella di input è vuota.")
+    else:
+        # Elabora i file .p7m nella cartella
+        for filename in os.listdir(input_file_path):
+            if filename.lower().endswith(".p7m") and "metadato" not in filename.lower():
+                file_path_p7m = os.path.join(input_file_path, filename)
+                split_filename = os.path.splitext(filename)  # Divide il nome dal suffisso
+                file_name_decript = os.path.join(input_file_path, split_filename[0])  # Nome senza estensione .p7m
+
+                # Comando OpenSSL per decrittare e verificare il file
+                command = (
+                    f"openssl cms -decrypt -verify -inform DER -in \"{file_path_p7m}\" -noverify -out \"{file_name_decript}\""
+                )
+                print(f"Eseguendo comando: {command}")
+
+                try:
+                    subprocess.run(command, shell=True, check=True)
+                    print(f"File decrittato con successo: {file_name_decript}")
+
+                    # Rimuove il file .p7m dopo la decodifica
+                    os.remove(file_path_p7m)
+                    print(f"File .p7m eliminato: {file_path_p7m}")
+                except subprocess.CalledProcessError as e:
+                    print(f"Errore durante la decrittazione del file {filename}: {e}")
+
 
 def read_fatture(folder_path: str) -> List[Fattura]:
     fatture = []
@@ -231,7 +265,8 @@ if __name__ == "__main__":
         print("Esempio: python script.py /path/to/fatture -R 01/01/2023 31/12/2023")
         print("Formato delle date: DD/MM/YYYY")
         sys.exit(1)
-
+        
+    decode_p7m_files(folder_path)
     fatture = read_fatture(folder_path)
 
     if filter_option:
