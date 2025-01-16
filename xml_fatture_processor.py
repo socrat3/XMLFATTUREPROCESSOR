@@ -8,6 +8,13 @@ from xml.etree.ElementTree import parse
 from fpdf import FPDF, XPos, YPos
 from prettytable import PrettyTable
 
+
+# Dizionario per tradurre i mesi in italiano
+mesi_italiani = {
+    1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile", 5: "Maggio", 6: "Giugno",
+    7: "Luglio", 8: "Agosto", 9: "Settembre", 10: "Ottobre", 11: "Novembre", 12: "Dicembre"
+}
+
 @dataclass
 class Fattura:
     cedente_id_fiscale: str
@@ -121,14 +128,13 @@ def decode_p7m_files(input_file_path: str):
                 except subprocess.CalledProcessError as e:
                     print(f"Errore durante la decrittazione del file {filename}: {e}")
 
-
 def read_fatture(folder_path: str) -> List[Fattura]:
     fatture = []
     fatture_table = PrettyTable(["#", "Nome Fattura", "Fornitore", "Cliente", "Numero", "Data", "Ritenuta", "Importo Ritenuta", "Elaborazione"])
 
     for root, _, files in os.walk(folder_path):
         for file_name in files:
-            if file_name.endswith(('.xml', '.p7m')):
+            if file_name.endswith(('.xml', '.p7m')) and "metadato" not in file_name.lower():
                 file_path = os.path.join(root, file_name)
                 fattura = process_file(file_path, file_name)
                 fatture.append(fattura)
@@ -145,13 +151,16 @@ def read_fatture(folder_path: str) -> List[Fattura]:
     print(fatture_table)
     return fatture
 
-def aggregate_by_supplier_and_client(fatture: List[Fattura]) -> Dict[str, List[Fattura]]:
+def aggregate_by_supplier_and_client(fatture: List[Fattura]) -> Dict[str, Dict[int, List[Fattura]]]:
     aggregato = {}
     for fattura in fatture:
         key = fattura.cedente_denominazione
+        month = fattura.data.month
         if key not in aggregato:
-            aggregato[key] = []
-        aggregato[key].append(fattura)
+            aggregato[key] = {}
+        if month not in aggregato[key]:
+            aggregato[key][month] = []
+        aggregato[key][month].append(fattura)
     return aggregato
 
 def filter_fatture_by_date_and_ritenuta(fatture: List[Fattura], start_date: Optional[datetime.date], end_date: Optional[datetime.date]) -> List[Fattura]:
@@ -171,7 +180,7 @@ def filter_fatture_by_date_and_ritenuta(fatture: List[Fattura], start_date: Opti
                 filtered_fatture.append(fattura)
     return filtered_fatture
 
-def export_to_pdf(fatture: List[Fattura], pdf_file_path: str):
+def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Optional[datetime.date], end_date: Optional[datetime.date]):
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.set_font("Helvetica", size=10)
@@ -179,31 +188,51 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str):
     # Intestazione del programma
     pdf.add_page()
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, "XML Fatture Processor 1.0 del 15/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
-    pdf.ln(20)
+    pdf.cell(0, 10, "XML Fatture Processor 1.1 del 16/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.ln(1)
+
+    # Specifica del periodo se indicato
+    if start_date and end_date:
+        periodo = f"periodo: dal {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}"
+        pdf.cell(0, 10, periodo, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        pdf.ln(1)
 
     oggi = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     grouped_fatture = aggregate_by_supplier_and_client(fatture)
 
     # Aggiungi il riepilogo totale delle ritenute nella prima pagina
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, "Riepilogo Totale Ritenute per Fornitore e Cliente:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+    pdf.cell(0, 10, "Riepilogo totale ritenute per Fornitore e Cliente:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
     pdf.set_font("Helvetica", size=10)
-    pdf.ln(10)
+    pdf.ln(1)
 
-    for fornitore, fatture_gruppo in grouped_fatture.items():
-        totale = sum(f.importo_ritenuta for f in fatture_gruppo if f.ritenuta_applicata)
-        pdf.cell(0, 10, f"Fornitore: {fornitore} (P.IVA/C.F.: {fatture_gruppo[0].cedente_id_fiscale}), Totale Ritenute: {totale:.2f} Euro", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+    for fornitore, fatture_per_mese in grouped_fatture.items():
+        totale_periodo = sum(f.importo_ritenuta for f in fatture if f.ritenuta_applicata and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
+
+        # Imposta il font in grassetto
+        pdf.set_font("Helvetica", style="B", size=10)
+        pdf.cell(0, 10, f"Fornitore: {fornitore} (P.IVA/C.F.: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_id_fiscale})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        pdf.set_font("Helvetica", size=10)
+        pdf.cell(0, 10, f"Totale Ritenute per il {periodo} Euro {totale_periodo:.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        pdf.ln(1)
+
+        for mese, fatture_gruppo in fatture_per_mese.items():
+            totale_mese = sum(f.importo_ritenuta for f in fatture_gruppo if f.ritenuta_applicata)
+            pdf.cell(0, 10, f"  Mese: {mesi_italiani[mese]}, Totale Ritenute: {totale_mese:.2f} Euro", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
     pdf.ln(20)
 
-    for fornitore, fatture_gruppo in grouped_fatture.items():
-        fatture_gruppo.sort(key=lambda x: x.data)
+    for fornitore, fatture_per_mese in grouped_fatture.items():
+        clienti = set(f"{f.cessionario_denominazione} (P.IVA/C.F.: {f.cessionario_id_fiscale})" for f in fatture if f.cedente_denominazione == fornitore)
+        clienti_str = ", ".join(clienti)
         pdf.add_page()
         pdf.set_font("Helvetica", style="B", size=10)
-        pdf.cell(0, 10, f"FORNITORE: {fornitore.upper()} (P.IVA/C.F.: {fatture_gruppo[0].cedente_id_fiscale})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        pdf.cell(0, 10, f"FORNITORE: {fornitore.upper()} (P.IVA/C.F.: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_id_fiscale})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.set_font("Helvetica", size=10)
+        pdf.cell(0, 10, f"Clienti: {clienti_str}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.cell(0, 10, f"Data e ora elaborazione: {oggi}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        if start_date and end_date:
+            pdf.cell(0, 10, f"Periodo trattato: dal {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
         headers = ["#", "Nome Fattura", "Cliente", "Numero", "Data", "Ritenuta", "Importo Ritenuta", "Elaborazione"]
         col_widths = [10, 60, 60, 30, 30, 20, 30, 40]
@@ -213,22 +242,26 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str):
             pdf.cell(width, 10, header, border=1, align="C")
         pdf.ln()
 
-        for idx, fattura in enumerate(fatture_gruppo, start=1):
-            data = [
-                idx, fattura.nome_file, truncate_string(fattura.cessionario_denominazione) + f" (P.IVA/C.F.: {fattura.cessionario_id_fiscale})",
-                fattura.numero, fattura.data.strftime('%d/%m/%Y') if fattura.stato_elaborazione == "OK" else "-",
-                "SI" if fattura.ritenuta_applicata else "NO",
-                f"{fattura.importo_ritenuta:.2f}" if fattura.ritenuta_applicata else "-",
-                fattura.stato_elaborazione
-            ]
-            for value, width in zip(data, col_widths):
-                pdf.cell(width, 10, str(value), border=1, align="C")
-            pdf.ln()
+        idx = 1
+        for mese, fatture_gruppo in fatture_per_mese.items():
+            fatture_gruppo.sort(key=lambda x: x.data)
+            for fattura in fatture_gruppo:
+                data = [
+                    idx, fattura.nome_file, truncate_string(fattura.cessionario_denominazione) + f"\n(P.IVA/C.F.: {fattura.cessionario_id_fiscale})",
+                    fattura.numero, fattura.data.strftime('%d/%m/%Y') if fattura.stato_elaborazione == "OK" else "-",
+                    "SI" if fattura.ritenuta_applicata else "NO",
+                    f"{fattura.importo_ritenuta:.2f}" if fattura.ritenuta_applicata else "-",
+                    fattura.stato_elaborazione
+                ]
+                for value, width in zip(data, col_widths):
+                    pdf.cell(width, 10, truncate_string(str(value), max_length=25), border=1, align="C")
+                pdf.ln()
+                idx += 1
 
     pdf.output(pdf_file_path)
 
 if __name__ == "__main__":
-    print("XML Fatture Processor 1.0")
+    print("XML Fatture Processor 1.1 del 16-01-2025 ** Agrigento città della cultura 2025")
     print("Sviluppato da Salvatore Crapanzano")
     print("Rilasciato sotto licenza GNU-GPL")
     print()
@@ -265,7 +298,7 @@ if __name__ == "__main__":
         print("Esempio: python script.py /path/to/fatture -R 01/01/2023 31/12/2023")
         print("Formato delle date: DD/MM/YYYY")
         sys.exit(1)
-        
+
     decode_p7m_files(folder_path)
     fatture = read_fatture(folder_path)
 
@@ -275,11 +308,31 @@ if __name__ == "__main__":
         filtered_fatture = fatture
 
     pdf_file_path = "fatture.pdf"
-    export_to_pdf(filtered_fatture, pdf_file_path)
-    print(f"File PDF generato: {pdf_file_path}")
+    #export_to_pdf(filtered_fatture, pdf_file_path, start_date, end_date)
+    
+    # Ottieni i nomi del primo cliente e fornitore
+    nome_cliente = truncate_string(fatture[0].cessionario_denominazione.replace(" ", "_"), max_length=50) if fatture else "NessunCliente"
+    nome_fornitore = truncate_string(fatture[0].cedente_denominazione.replace(" ", "_"), max_length=50) if fatture else "NessunFornitore"
 
+    # Formatta l'intervallo di date
+    data_inizio = start_date.strftime('%d%m%Y') if start_date else "Inizio"
+    data_fine = end_date.strftime('%d%m%Y') if end_date else "Fine"
+
+    
+    # Crea il nome del file PDF
+    pdf_file_name = f"fatture_{nome_cliente}_{data_inizio}_{data_fine}.pdf"
+   
+    
+# Percorso completo del file PDF
+    pdf_file_path = os.path.join(folder_path, pdf_file_name)
+    print(f"File PDF generato: {pdf_file_path}")
+    
+    export_to_pdf(filtered_fatture, pdf_file_name, start_date, end_date)
     aggregato = aggregate_by_supplier_and_client(filtered_fatture)
     print("\nRiepilogo Totale Ritenute per Fornitore e Cliente:")
-    for fornitore, fatture_gruppo in aggregato.items():
-        totale = sum(f.importo_ritenuta for f in fatture_gruppo if f.ritenuta_applicata)
-        print(f"Fornitore: {fornitore}, Totale Ritenute: {totale:.2f} Euro")
+    for fornitore, fatture_per_mese in aggregato.items():
+        totale_periodo = sum(f.importo_ritenuta for f in filtered_fatture if f.ritenuta_applicata and f.cedente_denominazione == fornitore and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
+        print(f"Fornitore: {fornitore}, Totale Ritenute per il periodo: {totale_periodo:.2f} Euro")
+        for mese, fatture_gruppo in fatture_per_mese.items():
+            totale_mese = sum(f.importo_ritenuta for f in fatture_gruppo if f.ritenuta_applicata)
+            print(f"  Mese: {mesi_italiani[mese]}, Totale Ritenute: {totale_mese:.2f} Euro")
