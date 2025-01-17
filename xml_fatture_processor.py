@@ -179,6 +179,15 @@ def filter_fatture_by_date_and_ritenuta(fatture: List[Fattura], start_date: Opti
                 filtered_fatture.append(fattura)
     return filtered_fatture
 
+def filter_fatture_by_partita_iva(fatture: List[Fattura], partita_iva: str, is_fornitore: bool) -> List[Fattura]:
+    filtered_fatture = []
+    for fattura in fatture:
+        if is_fornitore and fattura.cedente_id_fiscale == partita_iva:
+            filtered_fatture.append(fattura)
+        elif not is_fornitore and fattura.cessionario_id_fiscale == partita_iva:
+            filtered_fatture.append(fattura)
+    return filtered_fatture
+
 def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Optional[datetime.date], end_date: Optional[datetime.date], save_output: bool = False, output_text: str = ""):
     pdf = FPDF(orientation="L", unit="mm", format="A4")
     pdf.set_auto_page_break(auto=True, margin=15)
@@ -266,9 +275,10 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     pdf.output(pdf_file_path)
 
 def print_syntax_error():
-    print("Sintassi corretta: python script.py /path/to/fatture [-R] [-M] [start_date end_date]")
-    print("Esempio: python script.py /path/to/fatture -R -M 01/01/2023 31/12/2023")
+    print("Sintassi corretta: python script.py /path/to/fatture [-R] [-M] [-FORNITORE partita_iva] [-CLIENTE partita_iva] [start_date end_date]")
+    print("Esempio: python script.py /path/to/fatture -R -M -FORNITORE 12345678901 01/01/2023 31/12/2023")
     print("Formato delle date: DD/MM/YYYY")
+    print("Formato della partita IVA: 11 numeri")
 
 if __name__ == "__main__":
     print("XML Fatture Processor 1.6 del 17/01/2025 ** Agrigento città della cultura 2025")
@@ -283,11 +293,37 @@ if __name__ == "__main__":
     folder_path = sys.argv[1]
     filter_option = '-R' in sys.argv
     save_output_option = '-M' in sys.argv
+    fornitore_option = '-FORNITORE' in sys.argv
+    cliente_option = '-CLIENTE' in sys.argv
     start_date_str = None
     end_date_str = None
+    fornitore_partita_iva = None
+    cliente_partita_iva = None
 
-    # Rimuovi le opzioni -R e -M dagli argomenti
-    argv = [arg for arg in sys.argv if arg not in ['-R', '-M']]
+    # Rimuovi le opzioni -R, -M, -FORNITORE e -CLIENTE dagli argomenti
+    argv = [arg for arg in sys.argv if arg not in ['-R', '-M', '-FORNITORE', '-CLIENTE']]
+
+    if fornitore_option:
+        fornitore_index = sys.argv.index('-FORNITORE')
+        if fornitore_index + 1 < len(sys.argv):
+            fornitore_partita_iva = sys.argv[fornitore_index + 1]
+            if len(fornitore_partita_iva) != 11 or not fornitore_partita_iva.isdigit():
+                print_syntax_error()
+                sys.exit(1)
+        else:
+            print_syntax_error()
+            sys.exit(1)
+
+    if cliente_option:
+        cliente_index = sys.argv.index('-CLIENTE')
+        if cliente_index + 1 < len(sys.argv):
+            cliente_partita_iva = sys.argv[cliente_index + 1]
+            if len(cliente_partita_iva) != 11 or not cliente_partita_iva.isdigit():
+                print_syntax_error()
+                sys.exit(1)
+        else:
+            print_syntax_error()
+            sys.exit(1)
 
     if filter_option:
         if len(argv) < 4:
@@ -315,6 +351,12 @@ if __name__ == "__main__":
         if date_fatture:
             start_date = min(date_fatture)
             end_date = max(date_fatture)
+
+    if fornitore_partita_iva:
+        fatture = filter_fatture_by_partita_iva(fatture, fornitore_partita_iva, is_fornitore=True)
+
+    if cliente_partita_iva:
+        fatture = filter_fatture_by_partita_iva(fatture, cliente_partita_iva, is_fornitore=False)
 
     if filter_option:
         filtered_fatture = filter_fatture_by_date_and_ritenuta(fatture, start_date, end_date)
