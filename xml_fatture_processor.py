@@ -201,7 +201,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
 
     # Specifica del periodo se indicato
     if start_date and end_date:
-        periodo = f"periodo: dal {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}"
+        periodo = f"Periodo di elaborazione dal {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}"
         pdf.cell(0, 10, periodo, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
         pdf.ln(1)
 
@@ -215,13 +215,13 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     pdf.ln(1)
 
     for fornitore, fatture_per_mese in grouped_fatture.items():
-        totale_periodo = sum(f.importo_ritenuta for f in fatture if f.ritenuta_applicata and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
-
+        totale_periodo_tutto = sum(f.importo_ritenuta for f in fatture if f.ritenuta_applicata and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
+        totale_periodo_fornitore = sum(f.importo_ritenuta for f in filtered_fatture if f.ritenuta_applicata and f.cedente_denominazione == fornitore and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
         # Imposta il font in grassetto
         pdf.set_font("Helvetica", style="B", size=10)
         pdf.cell(0, 10, f"Fornitore: {fornitore} (P.IVA/C.F.: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_id_fiscale})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.set_font("Helvetica", size=10)
-        pdf.cell(0, 10, f"Totale Ritenute per il {periodo} Euro {totale_periodo:.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        pdf.cell(0, 10, f"Totale Ritenute per il {periodo} Euro {totale_periodo_tutto:.2f} di cui per il fornitore Euro {totale_periodo_fornitore:.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.ln(1)
 
         for year_month, fatture_gruppo in fatture_per_mese.items():
@@ -395,3 +395,14 @@ if __name__ == "__main__":
         print(output_text)
 
     export_to_pdf(filtered_fatture, pdf_file_name, start_date, end_date, save_output_option, output_text)
+    # Apre automaticamente il file PDF appena generato
+    if os.path.exists(pdf_file_path):
+        try:
+            if sys.platform == "win32":  # Per Windows
+                os.startfile(pdf_file_path)
+            elif sys.platform == "darwin":  # Per macOS
+                subprocess.run(["open", pdf_file_path], check=True)
+            else:  # Per Linux e altri sistemi Unix-like
+                subprocess.run(["xdg-open", pdf_file_path], check=True)
+        except Exception as e:
+            print(f"Errore durante l'apertura del file PDF: {e}")
