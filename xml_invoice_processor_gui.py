@@ -82,8 +82,11 @@ class InvoiceProcessorGUI:
         self.open_pdf_button = ttk.Button(button_frame, text="Apri PDF (F3)", command=self.open_pdf, state='disabled')
         self.open_pdf_button.grid(row=0, column=1, padx=10)
 
+        self.clear_button = ttk.Button(button_frame, text="Reinizializza Campi", command=self.clear_fields)
+        self.clear_button.grid(row=0, column=2, padx=10)
+
         self.exit_button = ttk.Button(button_frame, text="Esci (F10)", command=self.root.quit)
-        self.exit_button.grid(row=0, column=2, padx=10)
+        self.exit_button.grid(row=0, column=3, padx=10)
 
         # Frame con scrollbar per l'output del prompt
         output_frame = ttk.Frame(main_frame, borderwidth=1, relief="solid")
@@ -178,6 +181,19 @@ class InvoiceProcessorGUI:
                 self.log_output(f"Errore durante l'apertura del PDF: {str(e)}\n", "red")
         else:
             self.log_output("File PDF non trovato!\n", "red")
+
+    def clear_fields(self):
+        self.folder_path.set("")
+        self.supplier_vat.set("")
+        self.client_vat.set("")
+        self.start_date.set_date(datetime(2024, 1, 1))
+        self.end_date.set_date(datetime(2024, 12, 31))
+        self.option_r.set(False)
+        self.option_m.set(False)
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.delete(1.0, tk.END)
+        self.output_text.config(state=tk.DISABLED)
+        self.open_pdf_button.config(state='disabled')
 
 def main():
     root = tk.Tk()
