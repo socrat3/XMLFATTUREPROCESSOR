@@ -394,15 +394,21 @@ if __name__ == "__main__":
                 output_text += f"  Mese: {mesi_italiani[month]} {year}, Totale Ritenute: {totale_mese:.2f} Euro\n"
         print(output_text)
 
-    export_to_pdf(filtered_fatture, pdf_file_name, start_date, end_date, save_output_option, output_text)
-    # Apre automaticamente il file PDF appena generato
-    if os.path.exists(pdf_file_path):
+    export_to_pdf(filtered_fatture, pdf_file_path, start_date, end_date, save_output_option, output_text)
+
+# Apre automaticamente il file PDF appena generato
+if os.path.exists(pdf_file_path):
+    try:
+        if sys.platform == "win32":  # Per Windows
+            os.startfile(pdf_file_path)
+        else:
+            print("Sistema operativo non supportato per questa operazione.")
+    except Exception as e:
+        print(f"Errore durante l'apertura del file PDF: {e}. Provo con il comando 'start'...")
         try:
-            if sys.platform == "win32":  # Per Windows
-                os.startfile(pdf_file_path)
-            elif sys.platform == "darwin":  # Per macOS
-                subprocess.run(["open", pdf_file_path], check=True)
-            else:  # Per Linux e altri sistemi Unix-like
-                subprocess.run(["xdg-open", pdf_file_path], check=True)
-        except Exception as e:
-            print(f"Errore durante l'apertura del file PDF: {e}")
+            # Metodo alternativo con subprocess
+            subprocess.run(["start", "", pdf_file_path], shell=True, check=True)
+        except Exception as e2:
+            print(f"Errore con il metodo alternativo: {e2}. Controlla il visualizzatore predefinito.")
+else:
+    print(f"File PDF non trovato: {pdf_file_path}")
