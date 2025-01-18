@@ -8,6 +8,7 @@ from xml.etree.ElementTree import parse
 from fpdf import FPDF, XPos, YPos
 from prettytable import PrettyTable
 
+pdf_file_path = "fatture.pdf"
 # Dizionario per tradurre i mesi in italiano
 mesi_italiani = {
     1: "Gennaio", 2: "Febbraio", 3: "Marzo", 4: "Aprile", 5: "Maggio", 6: "Giugno",
@@ -196,7 +197,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     # Intestazione del programma
     pdf.add_page()
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, "XML Fatture Processor 1.7 del 17/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 10, "XML Fatture Processor 1.7.1 del 18/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(1)
 
     # Specifica del periodo se indicato
@@ -276,12 +277,12 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
 
 def print_syntax_error():
     print("Sintassi corretta: python script.py /path/to/fatture [-R] [-M] [-FORNITORE partita_iva] [-CLIENTE partita_iva] [start_date end_date]")
-    print("Esempio: python script.py /path/to/fatture -R -M -FORNITORE 12345678901 01/01/2023 31/12/2023")
+    print("Esempio: python script.py /path/to/fatture -R -M -FORNITORE 12345678901 01/01/2024 31/12/2024")
     print("Formato delle date: DD/MM/YYYY")
     print("Formato della partita IVA: 11 numeri")
 
 if __name__ == "__main__":
-    print("XML Fatture Processor 1.7 del 18/01/2025 ** Agrigento città della cultura 2025")
+    print("XML Fatture Processor 1.7.1 del 18/01/2025 ** Agrigento città della cultura 2025")
     print("Sviluppato da Salvatore Crapanzano")
     print("Rilasciato sotto licenza GNU-GPL")
     print()
@@ -363,7 +364,7 @@ if __name__ == "__main__":
     else:
         filtered_fatture = fatture
 
-    pdf_file_path = "fatture.pdf"
+    
     #export_to_pdf(filtered_fatture, pdf_file_path, start_date, end_date)
 
     # Ottieni i nomi del primo cliente e fornitore
