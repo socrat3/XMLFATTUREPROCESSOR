@@ -196,7 +196,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     # Intestazione del programma
     pdf.add_page()
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, "XML Fatture Processor 1.6 del 17/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 10, "XML Fatture Processor 1.7 del 17/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(1)
 
     # Specifica del periodo se indicato
@@ -281,7 +281,7 @@ def print_syntax_error():
     print("Formato della partita IVA: 11 numeri")
 
 if __name__ == "__main__":
-    print("XML Fatture Processor 1.6 del 17/01/2025 ** Agrigento città della cultura 2025")
+    print("XML Fatture Processor 1.7 del 18/01/2025 ** Agrigento città della cultura 2025")
     print("Sviluppato da Salvatore Crapanzano")
     print("Rilasciato sotto licenza GNU-GPL")
     print()
