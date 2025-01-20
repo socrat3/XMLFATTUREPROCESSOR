@@ -8,6 +8,9 @@ from xml.etree.ElementTree import parse
 from fpdf import FPDF, XPos, YPos
 from prettytable import PrettyTable
 
+# Versione del software
+VERSION = "1.7.2 del 20-01-2025"
+
 pdf_file_path = "fatture.pdf"
 # Dizionario per tradurre i mesi in italiano
 mesi_italiani = {
@@ -197,7 +200,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     # Intestazione del programma
     pdf.add_page()
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, "XML Fatture Processor 1.7.2 del 20/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 10, f"XML Fatture Processor {VERSION} di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(1)
 
     # Specifica del periodo se indicato
@@ -225,10 +228,13 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
         pdf.cell(0, 10, f"Totale Ritenute per il {periodo} Euro {totale_periodo_tutto:.2f} di cui per il fornitore Euro {totale_periodo_fornitore:.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.ln(1)
 
-        for year_month, fatture_gruppo in fatture_per_mese.items():
-            year, month = year_month
+        # Ordina le fatture per anno e mese
+        sorted_year_months = sorted(fatture_per_mese.keys())
+        for year_month in sorted_year_months:
+            fatture_gruppo = fatture_per_mese[year_month]
+            fatture_gruppo.sort(key=lambda x: x.data)
             totale_mese = sum(f.importo_ritenuta for f in fatture_gruppo if f.ritenuta_applicata)
-            pdf.cell(0, 10, f"  Mese: {mesi_italiani[month]} {year}, Totale Ritenute: {totale_mese:.2f} Euro", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+            pdf.cell(0, 10, f"  Mese: {mesi_italiani[year_month[1]]} {year_month[0]}, Totale Ritenute: {totale_mese:.2f} Euro", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
 
     pdf.ln(20)
 
@@ -253,22 +259,23 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
         pdf.ln()
 
         idx = 1
-        # Ordina le fatture per data
-        all_fatture_gruppo = [fattura for fatture_gruppo in fatture_per_mese.values() for fattura in fatture_gruppo]
-        all_fatture_gruppo.sort(key=lambda x: x.data)
-
-        for fattura in all_fatture_gruppo:
-            data = [
-                idx, fattura.nome_file, truncate_string(fattura.cessionario_denominazione) + f"\n(P.IVA/C.F.: {fattura.cessionario_id_fiscale})",
-                fattura.numero, fattura.data.strftime('%d/%m/%Y') if fattura.stato_elaborazione == "OK" else "-",
-                "SI" if fattura.ritenuta_applicata else "NO",
-                f"{fattura.importo_ritenuta:.2f}" if fattura.ritenuta_applicata else "-",
-                fattura.stato_elaborazione
-            ]
-            for value, width in zip(data, col_widths):
-                pdf.cell(width, 10, truncate_string(str(value), max_length=25), border=1, align="C")
-            pdf.ln()
-            idx += 1
+        # Ordina le fatture per anno e mese
+        sorted_year_months = sorted(fatture_per_mese.keys())
+        for year_month in sorted_year_months:
+            fatture_gruppo = fatture_per_mese[year_month]
+            fatture_gruppo.sort(key=lambda x: x.data)
+            for fattura in fatture_gruppo:
+                data = [
+                    idx, fattura.nome_file, truncate_string(fattura.cessionario_denominazione) + f"\n(P.IVA/C.F.: {fattura.cessionario_id_fiscale})",
+                    fattura.numero, fattura.data.strftime('%d/%m/%Y') if fattura.stato_elaborazione == "OK" else "-",
+                    "SI" if fattura.ritenuta_applicata else "NO",
+                    f"{fattura.importo_ritenuta:.2f}" if fattura.ritenuta_applicata else "-",
+                    fattura.stato_elaborazione
+                ]
+                for value, width in zip(data, col_widths):
+                    pdf.cell(width, 10, truncate_string(str(value), max_length=25), border=1, align="C")
+                pdf.ln()
+                idx += 1
 
     if save_output:
         pdf.add_page()
@@ -278,13 +285,13 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     pdf.output(pdf_file_path)
 
 def print_syntax_error():
-    print("Sintassi corretta: python script.py /path/to/fatture [-R] [-M] [-FORNITORE partita_iva] [-CLIENTE partita_iva] [start_date end_date]")
-    print("Esempio: python script.py /path/to/fatture -R -M -FORNITORE 12345678901 01/01/2024 31/12/2024")
+    print(f"Sintassi corretta: python script.py /path/to/fatture [-R] [-M] [-FORNITORE partita_iva] [-CLIENTE partita_iva] [start_date end_date]")
+    print(f"Esempio: python script.py /path/to/fatture -R -M -FORNITORE 12345678901 01/01/2024 31/12/2024")
     print("Formato delle date: DD/MM/YYYY")
     print("Formato della partita IVA: 11 numeri")
 
 if __name__ == "__main__":
-    print("XML Fatture Processor 1.7.2 del 20/01/2025 ** Agrigento città della cultura 2025")
+    print(f"XML Fatture Processor {VERSION} ** Agrigento città della cultura 2025")
     print("Sviluppato da Salvatore Crapanzano")
     print("Rilasciato sotto licenza GNU-GPL")
     print()
@@ -388,9 +395,10 @@ if __name__ == "__main__":
         for fornitore, fatture_per_mese in aggregato.items():
             totale_periodo = sum(f.importo_ritenuta for f in filtered_fatture if f.ritenuta_applicata and f.cedente_denominazione == fornitore and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
             output_text += f"Fornitore: {fornitore}, Totale Ritenute per il periodo: {totale_periodo:.2f} Euro\n"
-            for year_month, fatture_gruppo in fatture_per_mese.items():
+            sorted_year_months = sorted(fatture_per_mese.keys())
+            for year_month in sorted_year_months:
                 year, month = year_month
-                totale_mese = sum(f.importo_ritenuta for f in fatture_gruppo if f.ritenuta_applicata)
+                totale_mese = sum(f.importo_ritenuta for f in fatture_per_mese[year_month] if f.ritenuta_applicata)
                 output_text += f"  Mese: {mesi_italiani[month]} {year}, Totale Ritenute: {totale_mese:.2f} Euro\n"
         print(output_text)
 
