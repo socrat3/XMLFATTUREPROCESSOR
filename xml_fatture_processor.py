@@ -197,7 +197,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     # Intestazione del programma
     pdf.add_page()
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, "XML Fatture Processor 1.7.1 del 18/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 10, "XML Fatture Processor 1.7.2 del 20/01/2025 di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(1)
 
     # Specifica del periodo se indicato
@@ -253,20 +253,22 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
         pdf.ln()
 
         idx = 1
-        for year_month, fatture_gruppo in fatture_per_mese.items():
-            fatture_gruppo.sort(key=lambda x: x.data)
-            for fattura in fatture_gruppo:
-                data = [
-                    idx, fattura.nome_file, truncate_string(fattura.cessionario_denominazione) + f"\n(P.IVA/C.F.: {fattura.cessionario_id_fiscale})",
-                    fattura.numero, fattura.data.strftime('%d/%m/%Y') if fattura.stato_elaborazione == "OK" else "-",
-                    "SI" if fattura.ritenuta_applicata else "NO",
-                    f"{fattura.importo_ritenuta:.2f}" if fattura.ritenuta_applicata else "-",
-                    fattura.stato_elaborazione
-                ]
-                for value, width in zip(data, col_widths):
-                    pdf.cell(width, 10, truncate_string(str(value), max_length=25), border=1, align="C")
-                pdf.ln()
-                idx += 1
+        # Ordina le fatture per data
+        all_fatture_gruppo = [fattura for fatture_gruppo in fatture_per_mese.values() for fattura in fatture_gruppo]
+        all_fatture_gruppo.sort(key=lambda x: x.data)
+
+        for fattura in all_fatture_gruppo:
+            data = [
+                idx, fattura.nome_file, truncate_string(fattura.cessionario_denominazione) + f"\n(P.IVA/C.F.: {fattura.cessionario_id_fiscale})",
+                fattura.numero, fattura.data.strftime('%d/%m/%Y') if fattura.stato_elaborazione == "OK" else "-",
+                "SI" if fattura.ritenuta_applicata else "NO",
+                f"{fattura.importo_ritenuta:.2f}" if fattura.ritenuta_applicata else "-",
+                fattura.stato_elaborazione
+            ]
+            for value, width in zip(data, col_widths):
+                pdf.cell(width, 10, truncate_string(str(value), max_length=25), border=1, align="C")
+            pdf.ln()
+            idx += 1
 
     if save_output:
         pdf.add_page()
@@ -282,7 +284,7 @@ def print_syntax_error():
     print("Formato della partita IVA: 11 numeri")
 
 if __name__ == "__main__":
-    print("XML Fatture Processor 1.7.1 del 18/01/2025 ** Agrigento città della cultura 2025")
+    print("XML Fatture Processor 1.7.2 del 20/01/2025 ** Agrigento città della cultura 2025")
     print("Sviluppato da Salvatore Crapanzano")
     print("Rilasciato sotto licenza GNU-GPL")
     print()
@@ -363,9 +365,6 @@ if __name__ == "__main__":
         filtered_fatture = filter_fatture_by_date_and_ritenuta(fatture, start_date, end_date)
     else:
         filtered_fatture = fatture
-
-    
-    #export_to_pdf(filtered_fatture, pdf_file_path, start_date, end_date)
 
     # Ottieni i nomi del primo cliente e fornitore
     nome_cliente = truncate_string(fatture[0].cessionario_denominazione.replace(" ", "_"), max_length=50) if fatture else "NessunCliente"
