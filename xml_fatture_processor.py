@@ -9,7 +9,7 @@ from fpdf import FPDF, XPos, YPos
 from prettytable import PrettyTable
 
 # Versione del software
-VERSION = "1.7.2 del 20-01-2025"
+VERSION = "1.7.3 del 02-02-2025"
 
 pdf_file_path = "fatture.pdf"
 # Dizionario per tradurre i mesi in italiano
@@ -21,10 +21,11 @@ mesi_italiani = {
 @dataclass
 class Fattura:
     cedente_id_fiscale: str
+    cedente_partita_iva: str
     cedente_denominazione: str
-    cessionario_denominazione: str
     cessionario_id_fiscale: str
     cessionario_partita_iva: str
+    cessionario_denominazione: str
     data: datetime.date
     numero: str
     ritenuta_applicata: bool
@@ -59,11 +60,20 @@ def process_file(file_path: str, file_name: str) -> Fattura:
         dati_generali = body.find('DatiGenerali')
         dati_generali_documento = dati_generali.find('DatiGeneraliDocumento')
 
-        cedente_id_fiscale = cedente.find('DatiAnagrafici/IdFiscaleIVA/IdCodice').text
+        cedente_id_fiscale = cedente.find('DatiAnagrafici/CodiceFiscale')
+        cedente_id_fiscale = cedente_id_fiscale.text if cedente_id_fiscale is not None else "NO_CF_cedente"
+
+        cedente_partita_iva = cedente.find('DatiAnagrafici/IdFiscaleIVA/IdCodice')
+        cedente_partita_iva = cedente_partita_iva.text if cedente_partita_iva is not None else "NO_PIVA_cedente"
         cedente_denominazione = get_denominazione_or_nome_cognome(cedente.find('DatiAnagrafici/Anagrafica'))
+
+        cessionario_id_fiscale = cessionario.find('DatiAnagrafici/CodiceFiscale')
+        cessionario_id_fiscale = cessionario_id_fiscale.text if cessionario_id_fiscale is not None else "NO_CF_cessionario"
+
+        cessionario_partita_iva = cessionario.find('DatiAnagrafici/IdFiscaleIVA/IdCodice')
+        cessionario_partita_iva = cessionario_partita_iva.text if cessionario_partita_iva is not None else "NO_PIVA_cessionario"
         cessionario_denominazione = get_denominazione_or_nome_cognome(cessionario.find('DatiAnagrafici/Anagrafica'))
-        cessionario_id_fiscale = cessionario.find('DatiAnagrafici/IdFiscaleIVA/IdCodice').text
-        cessionario_partita_iva = cessionario.find('DatiAnagrafici/IdFiscaleIVA/IdCodice').text
+
         data = datetime.datetime.strptime(dati_generali_documento.find('Data').text, '%Y-%m-%d').date()
         numero = dati_generali_documento.find('Numero').text
 
@@ -73,10 +83,11 @@ def process_file(file_path: str, file_name: str) -> Fattura:
 
         return Fattura(
             cedente_id_fiscale=cedente_id_fiscale,
+            cedente_partita_iva=cedente_partita_iva,
             cedente_denominazione=cedente_denominazione,
-            cessionario_denominazione=cessionario_denominazione,
             cessionario_id_fiscale=cessionario_id_fiscale,
             cessionario_partita_iva=cessionario_partita_iva,
+            cessionario_denominazione=cessionario_denominazione,
             data=data,
             numero=numero,
             ritenuta_applicata=has_ritenuta,
@@ -87,10 +98,11 @@ def process_file(file_path: str, file_name: str) -> Fattura:
     except Exception as e:
         return Fattura(
             cedente_id_fiscale="",
+            cedente_partita_iva="",
             cedente_denominazione="",
-            cessionario_denominazione="",
             cessionario_id_fiscale="",
             cessionario_partita_iva="",
+            cessionario_denominazione="",
             data=datetime.date.today(),
             numero="",
             ritenuta_applicata=False,
@@ -239,7 +251,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     pdf.ln(20)
 
     for fornitore, fatture_per_mese in grouped_fatture.items():
-        clienti = set(f"{f.cessionario_denominazione} (P.IVA/C.F.: {f.cessionario_id_fiscale})" for f in fatture if f.cedente_denominazione == fornitore)
+        clienti = set(f"{f.cessionario_denominazione} (COD.FISC. {f.cessionario_id_fiscale})" for f in fatture if f.cedente_denominazione == fornitore)
         clienti_str = ", ".join(clienti)
         pdf.add_page()
         pdf.set_font("Helvetica", style="B", size=10)
