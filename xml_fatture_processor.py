@@ -61,10 +61,10 @@ def process_file(file_path: str, file_name: str) -> Fattura:
         dati_generali_documento = dati_generali.find('DatiGeneraliDocumento')
 
         cedente_id_fiscale = cedente.find('DatiAnagrafici/CodiceFiscale')
-        cedente_id_fiscale = cedente_id_fiscale.text if cedente_id_fiscale is not None else "NO_CF_cedente"
+        cedente_id_fiscale = cedente_id_fiscale.text if cedente_id_fiscale is not None else "CF. Cedente ND"
 
         cedente_partita_iva = cedente.find('DatiAnagrafici/IdFiscaleIVA/IdCodice')
-        cedente_partita_iva = cedente_partita_iva.text if cedente_partita_iva is not None else "NO_PIVA_cedente"
+        cedente_partita_iva = cedente_partita_iva.text if cedente_partita_iva is not None else "PIVA Cedente ND"
         cedente_denominazione = get_denominazione_or_nome_cognome(cedente.find('DatiAnagrafici/Anagrafica'))
 
         cessionario_id_fiscale = cessionario.find('DatiAnagrafici/CodiceFiscale')
@@ -217,16 +217,16 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
 
     # Specifica del periodo se indicato
     if start_date and end_date:
-        periodo = f"Periodo di elaborazione dal {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}"
-        pdf.cell(0, 10, periodo, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
-        pdf.ln(1)
+        periodo = f"Periodo di elaborazione fatture dal {start_date.strftime('%d/%m/%Y')} al {end_date.strftime('%d/%m/%Y')}"
+        # pdf.cell(0, 10, periodo, new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+        # pdf.ln(1)
 
     oggi = datetime.datetime.now().strftime('%d/%m/%Y %H:%M:%S')
     grouped_fatture = aggregate_by_supplier_and_client(fatture)
 
     # Aggiungi il riepilogo totale delle ritenute nella prima pagina
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, "Riepilogo totale ritenute per Fornitore e Cliente:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+    pdf.cell(0, 10, f"{periodo} - Riepilogo totale ritenute per Fornitore e Cliente:", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.set_font("Helvetica", size=10)
     pdf.ln(1)
 
@@ -235,7 +235,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
         totale_periodo_fornitore = sum(f.importo_ritenuta for f in filtered_fatture if f.ritenuta_applicata and f.cedente_denominazione == fornitore and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
         # Imposta il font in grassetto
         pdf.set_font("Helvetica", style="B", size=10)
-        pdf.cell(0, 10, f"Fornitore: {fornitore} (P.IVA: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_partita_iva})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        pdf.cell(0, 10, f"Fornitore: {fornitore} (P.IVA: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_partita_iva} - C.FISC.: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_id_fiscale})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.set_font("Helvetica", size=10)
         pdf.cell(0, 10, f"Totale Ritenute per il {periodo} Euro {totale_periodo_tutto:.2f} di cui per il fornitore Euro {totale_periodo_fornitore:.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.ln(1)
