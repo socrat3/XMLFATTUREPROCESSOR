@@ -198,9 +198,9 @@ def filter_fatture_by_date_and_ritenuta(fatture: List[Fattura], start_date: Opti
 def filter_fatture_by_partita_iva(fatture: List[Fattura], partita_iva: str, is_fornitore: bool) -> List[Fattura]:
     filtered_fatture = []
     for fattura in fatture:
-        if is_fornitore and fattura.cedente_id_fiscale == partita_iva:
+        if is_fornitore and fattura.cedente_partita_iva == partita_iva:
             filtered_fatture.append(fattura)
-        elif not is_fornitore and fattura.cessionario_id_fiscale == partita_iva:
+        elif not is_fornitore and fattura.cessionario_partita_iva == partita_iva:
             filtered_fatture.append(fattura)
     return filtered_fatture
 
@@ -212,7 +212,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     # Intestazione del programma
     pdf.add_page()
     pdf.set_font("Helvetica", style="B", size=12)
-    pdf.cell(0, 10, f"XML Fatture Processor {VERSION} di Salvatore Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
+    pdf.cell(0, 10, f"XML Fatture Processor {VERSION} di S.re Crapanzano - Licenza GNU-GPL - Agrigento Città della Cultura 2025", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="C")
     pdf.ln(1)
 
     # Specifica del periodo se indicato
@@ -235,7 +235,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
         totale_periodo_fornitore = sum(f.importo_ritenuta for f in filtered_fatture if f.ritenuta_applicata and f.cedente_denominazione == fornitore and (not start_date or f.data >= start_date) and (not end_date or f.data <= end_date))
         # Imposta il font in grassetto
         pdf.set_font("Helvetica", style="B", size=10)
-        pdf.cell(0, 10, f"Fornitore: {fornitore} (P.IVA/C.F.: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_id_fiscale})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
+        pdf.cell(0, 10, f"Fornitore: {fornitore} (P.IVA: {fatture_per_mese[next(iter(fatture_per_mese))][0].cedente_partita_iva})", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.set_font("Helvetica", size=10)
         pdf.cell(0, 10, f"Totale Ritenute per il {periodo} Euro {totale_periodo_tutto:.2f} di cui per il fornitore Euro {totale_periodo_fornitore:.2f}", new_x=XPos.LMARGIN, new_y=YPos.NEXT, align="L")
         pdf.ln(1)
@@ -251,7 +251,7 @@ def export_to_pdf(fatture: List[Fattura], pdf_file_path: str, start_date: Option
     pdf.ln(20)
 
     for fornitore, fatture_per_mese in grouped_fatture.items():
-        clienti = set(f"{f.cessionario_denominazione} (COD.FISC. {f.cessionario_id_fiscale})" for f in fatture if f.cedente_denominazione == fornitore)
+        clienti = set(f"{f.cessionario_denominazione} (COD.FISC. {f.cessionario_id_fiscale} Part.IVA {f.cessionario_partita_iva})" for f in fatture if f.cedente_denominazione == fornitore)
         clienti_str = ", ".join(clienti)
         pdf.add_page()
         pdf.set_font("Helvetica", style="B", size=10)
